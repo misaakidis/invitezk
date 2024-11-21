@@ -1,60 +1,69 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity ^0.8.0;
 
 import "./MerkleVerifier.sol";
 
 contract InviteZK is Verifier {
-    // Event to log successful verifications
-    event LeafVerified(address indexed verifier, uint256[8] leaf);
+    /// @notice Emitted when a leaf is successfully verified and stored
+    /// @param verifier Address of the user who verified the leaf
+    /// @param root Merkle root associated with the leaf
+    /// @param leafHash Hash of the verified leaf
+    event LeafVerified(address indexed verifier, bytes32 indexed root, bytes32 leafHash);
 
-    // Store verified leaves
-    mapping(bytes32 => bool) public verifiedLeaves;
+    /// @dev Mapping of verified leaves by root (root => leafHash => bool)
+    mapping(bytes32 => mapping(bytes32 => bool)) public verifiedLeaves;
 
     /**
-     * @dev Verifies the proof and stores the leaf hash if valid.
-     * @param proof The proof struct containing a, b, and c values.
-     * @param input Public inputs including the root and leaf.
-     *              input[0..7] is the root.
-     *              input[8..15] is the leaf.
+     * @notice Verifies a proof and stores the leaf hash under its corresponding root if valid
+     * @param proof The proof struct containing proof data: a, b, and c
+     * @param input Public inputs including the root (input[0..7]) and the leaf (input[8..15])
      */
-    function verifyAndStoreLeaf(
-        Proof memory proof,
-        uint256[] memory input
-    ) public {
-        // Ensure the input length is correct for depth 3 Merkle tree (8 for root, 8 for leaf)
+    function verifyAndStoreLeaf(Proof calldata proof, uint256[] calldata input) external {
         require(input.length == 16, "Invalid input length");
 
-        // Extract the leaf from the public inputs (second 8 values in the input array)
-        uint256[8] memory leaf;
-        for (uint256 i = 0; i < 8; i++) {
-            leaf[i] = input[i + 8];
-        }
+        // Extract the root from the input
+        bytes32 root = _hashInput(input, 0, 8);
 
-        // Hash the leaf array into a single value
-        bytes32 leafHash = keccak256(abi.encodePacked(leaf));
+        // Extract the leaf from the input
+        bytes32 leafHash = _hashInput(input, 8, 16);
 
-        // Ensure the leaf hasn't already been verified
-        require(!verifiedLeaves[leafHash], "Leaf already verified");
+        // Ensure the leaf hasn't already been verified for this root
+        require(!verifiedLeaves[root][leafHash], "Leaf already verified for this root");
 
-        // Call the `verify` function
+        // Verify the proof
         uint256 verificationResult = verify(input, proof);
         require(verificationResult == 0, "Invalid proof");
 
-        // Store the verified leaf
-        verifiedLeaves[leafHash] = true;
+        // Store the verified leaf under the root
+        verifiedLeaves[root][leafHash] = true;
 
         // Emit an event for the verified leaf
-        emit LeafVerified(msg.sender, leaf);
+        emit LeafVerified(msg.sender, root, leafHash);
     }
 
     /**
-     * @dev Checks if a leaf has been verified.
-     * @param leaf The leaf represented as an array of 8 uint256 values.
-     * @return True if the leaf is verified, otherwise false.
+     * @notice Checks if a leaf is verified under a specific root
+     * @param root The Merkle root
+     * @param leaf The leaf represented as an array of 8 uint256 values
+     * @return True if the leaf is verified under the given root, otherwise false
      */
-    function isLeafVerified(uint256[8] memory leaf) public view returns (bool) {
+    function isLeafVerified(bytes32 root, uint256[8] calldata leaf) external view returns (bool) {
         bytes32 leafHash = keccak256(abi.encodePacked(leaf));
-        return verifiedLeaves[leafHash];
+        return verifiedLeaves[root][leafHash];
+    }
+
+    /**
+     * @dev Internal helper to hash a subset of the input array
+     * @param input The input array
+     * @param start The starting index (inclusive)
+     * @param end The ending index (exclusive)
+     * @return A keccak256 hash of the subset
+     */
+    function _hashInput(uint256[] calldata input, uint256 start, uint256 end) internal pure returns (bytes32) {
+        bytes memory data;
+        for (uint256 i = start; i < end; i++) {
+            data = abi.encodePacked(data, input[i]);
+        }
+        return keccak256(data);
     }
 }
