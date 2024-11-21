@@ -2,7 +2,6 @@
   "name": "invitezk",
   "version": "1.0.0",
   "description": "ZK invite codes for ETH",
-  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -10,8 +9,8 @@
     "type": "git",
     "url": "git+https://github.com/misaakidis/invitezk.git"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Marios Isaakidis",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/misaakidis/invitezk/issues"
   },
